@@ -16,6 +16,11 @@ export default async function handler(req, res) {
   try {
     const { carrito } = req.body;
     
+    // DIAGNÓSTICO: Obligamos a Vercel a decirnos qué token está usando
+    const token = process.env.MP_ACCESS_TOKEN;
+    console.log("¿Vercel detectó el token?:", token ? "SÍ" : "NO");
+    console.log("El token empieza con:", token ? token.substring(0, 10) + "..." : "VACÍO");
+
     const items = carrito.map((item) => {
       const tieneDescuento = item.descuento > 0;
       const precioFinal = tieneDescuento ? item.precio * (1 - (item.descuento / 100)) : item.precio;
@@ -41,15 +46,13 @@ export default async function handler(req, res) {
     const mpResponse = await fetch("https://api.mercadopago.com/checkout/preferences", {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${process.env.MP_ACCESS_TOKEN}`,
+        "Authorization": `Bearer ${token}`,
         "Content-Type": "application/json"
       },
       body: JSON.stringify(preference)
     });
 
     const mpData = await mpResponse.json();
-
-    // ESTO ES CLAVE: Imprime el error exacto de Mercado Pago en la consola de Vercel
     console.log("RESPUESTA DE MERCADO PAGO:", mpData);
 
     if (!mpResponse.ok || !mpData.init_point) {
