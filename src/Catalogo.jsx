@@ -13,7 +13,12 @@ export default function Catalogo() {
   
   const [busqueda, setBusqueda] = useState(searchParams.get('q') || '');
   const [categoriaActiva, setCategoriaActiva] = useState(searchParams.get('cat') || 'Todas');
-  const [soloEnvioGratis, setSoloEnvioGratis] = useState(false);
+  
+  // Mantenemos el filtro de Envío Gratis
+  const [soloEnvioGratis, setSoloEnvioGratis] = useState(searchParams.get('envio') === 'gratis');
+  // NUEVO: Agregamos filtro para Cuotas
+  const [soloCuotas, setSoloCuotas] = useState(searchParams.get('cuotas') === 'true');
+  
   const [menuAbierto, setMenuAbierto] = useState(false);
 
   const categorias = ['Motor', 'Frenos', 'Herramientas', 'Accesorios', 'Baterías', 'Suspensión', 'Lubricantes'];
@@ -58,15 +63,29 @@ export default function Catalogo() {
   const enviarPedido = async () => {
     if (carrito.length === 0) return;
 
-    // CANDADO: Verificamos si el usuario está logueado
+    // CANDADO 1: Verificamos si el usuario está logueado
     const { data: authData } = await supabase.auth.getSession();
     if (!authData.session) {
       alert("Para finalizar tu compra y coordinar el envío, por favor iniciá sesión o creá una cuenta.");
       setCarritoAbierto(false);
       navigate('/cuenta');
-      return; // Frenamos la ejecución acá
+      return; 
     }
     
+    // CANDADO 2: Verificamos si tiene la dirección guardada
+    const { data: clienteData, error: clienteError } = await supabase
+      .from('clientes')
+      .select('direccion, ciudad, provincia, codigo_postal, telefono')
+      .eq('id', authData.session.user.id)
+      .single();
+
+    if (clienteError || !clienteData?.direccion || !clienteData?.ciudad) {
+      alert("Por favor, completá tus datos de envío en 'Mis Datos' antes de realizar la compra.");
+      setCarritoAbierto(false);
+      navigate('/cuenta');
+      return;
+    }
+
     // 1. Armamos el texto del detalle para la base de datos
     let detalleTexto = "";
     carrito.forEach((item) => {
@@ -75,6 +94,9 @@ export default function Catalogo() {
       detalleTexto += `- ${item.nombre} ($${precioFinal.toLocaleString('es-AR')})\n`;
     });
     
+    // Agregamos la dirección de envío al detalle
+    detalleTexto += `\n📍 DIRECCIÓN DE ENVÍO:\n${clienteData.direccion}, ${clienteData.ciudad}, ${clienteData.provincia} (CP: ${clienteData.codigo_postal})\n📞 Tel: ${clienteData.telefono || 'No especificado'}`;
+
     // 2. Guardamos el pedido en Supabase
     const { error } = await supabase.from('pedidos').insert([
       {
@@ -85,7 +107,6 @@ export default function Catalogo() {
       }
     ]);
     
-    // SI HAY UN ERROR, EL SISTEMA NOS AVISA Y FRENA EL PROCESO
     if (error) {
       alert("⚠️ Error al procesar tu pedido: " + error.message);
       return; 
@@ -108,11 +129,13 @@ export default function Catalogo() {
     setCarritoAbierto(false);
   };
 
+  // ACTUALIZACIÓN DE FILTROS: Ahora toma en cuenta las cuotas
   const productosFiltrados = productos.filter((prod) => {
     const coincideBusqueda = prod.nombre.toLowerCase().includes(busqueda.toLowerCase());
     const coincideCategoria = categoriaActiva === 'Todas' || prod.categoria === categoriaActiva;
     const coincideEnvio = soloEnvioGratis ? prod.envio_gratis === true : true;
-    return coincideBusqueda && coincideCategoria && coincideEnvio;
+    const coincideCuotas = soloCuotas ? prod.cuotas > 1 : true; // NUEVO
+    return coincideBusqueda && coincideCategoria && coincideEnvio && coincideCuotas;
   });
 
   const [carritoAbierto, setCarritoAbierto] = useState(false);
@@ -170,12 +193,18 @@ export default function Catalogo() {
                 ))}
               </div>
             </div>
+            
+            {/* BOTONES ACTIVADOS */}
             <ul className="flex items-center gap-6 px-6 text-gray-600 hidden lg:flex">
-              <li className="cursor-pointer hover:text-marca-negro transition-colors uppercase tracking-wide">Cuotas sin Interés</li>
-              <li className="cursor-pointer hover:text-marca-negro transition-colors uppercase tracking-wide">Envío Gratis</li>
+              <li onClick={() => setSoloCuotas(!soloCuotas)} className={`cursor-pointer transition-colors uppercase tracking-wide ${soloCuotas ? 'text-marca-amarillo font-black' : 'hover:text-marca-negro'}`}>
+                Cuotas sin Interés
+              </li>
+              <li onClick={() => setSoloEnvioGratis(!soloEnvioGratis)} className={`cursor-pointer transition-colors uppercase tracking-wide ${soloEnvioGratis ? 'text-marca-amarillo font-black' : 'hover:text-marca-negro'}`}>
+                Envío Gratis
+              </li>
             </ul>
-            <div className="ml-auto px-4 hidden md:block">
-              <span className="text-marca-amarillo bg-marca-negro px-3 py-1.5 text-xs rounded-full uppercase tracking-wider flex items-center gap-1 shadow-sm"><Zap className="w-3 h-3" /> Especial Talleres</span>
+            <div className="ml-auto px-4 hidden md:block cursor-pointer" onClick={() => seleccionarCategoria('Herramientas')}>
+              <span className="text-marca-amarillo bg-marca-negro px-3 py-1.5 text-xs rounded-full uppercase tracking-wider flex items-center gap-1 shadow-sm hover:bg-gray-800 transition-colors"><Zap className="w-3 h-3" /> Especial Talleres</span>
             </div>
           </div>
         </div>
@@ -188,10 +217,14 @@ export default function Catalogo() {
             <Filter className="w-5 h-5" />
             <span>Filtros</span>
           </div>
-          <div className="bg-white p-4 rounded border border-gray-200 mb-6 shadow-sm">
+          <div className="bg-white p-4 rounded border border-gray-200 mb-6 shadow-sm space-y-4">
             <label className="flex items-center justify-between cursor-pointer">
               <span className="text-sm font-bold text-gray-700">Envío Gratis</span>
               <input type="checkbox" className="w-4 h-4 text-marca-amarillo focus:ring-marca-amarillo border-gray-300 rounded" checked={soloEnvioGratis} onChange={(e) => setSoloEnvioGratis(e.target.checked)} />
+            </label>
+            <label className="flex items-center justify-between cursor-pointer border-t border-gray-100 pt-3">
+              <span className="text-sm font-bold text-gray-700">Cuotas sin Interés</span>
+              <input type="checkbox" className="w-4 h-4 text-marca-amarillo focus:ring-marca-amarillo border-gray-300 rounded" checked={soloCuotas} onChange={(e) => setSoloCuotas(e.target.checked)} />
             </label>
           </div>
           <div className="mb-6">
@@ -224,7 +257,7 @@ export default function Catalogo() {
           ) : productosFiltrados.length === 0 ? (
             <div className="bg-white p-12 text-center border border-gray-200 rounded shadow-sm">
               <p className="text-lg text-gray-600 font-bold">No se encontraron repuestos con esos filtros.</p>
-              <button onClick={() => {setBusqueda(''); seleccionarCategoria('Todas'); setSoloEnvioGratis(false);}} className="mt-4 text-marca-amarillo font-bold hover:underline">Limpiar búsqueda</button>
+              <button onClick={() => {setBusqueda(''); seleccionarCategoria('Todas'); setSoloEnvioGratis(false); setSoloCuotas(false);}} className="mt-4 text-marca-amarillo font-bold hover:underline">Limpiar búsqueda</button>
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">

@@ -3,7 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { supabase } from './supabase';
 import { ShoppingCart, ShieldCheck, Truck, Clock, Search, User, Zap, ChevronRight, X, Trash2, ChevronDown, Menu } from 'lucide-react';
 
-export default function ProductoDetalle({ numeroWhatsApp }) {
+export default function ProductoDetalle({ numeroWhatsApp = "5492974377349" }) {
   const { id } = useParams();
   const navigate = useNavigate();
   const [producto, setProducto] = useState(null);
@@ -72,21 +72,38 @@ export default function ProductoDetalle({ numeroWhatsApp }) {
   const enviarPedido = async () => {
     if (carrito.length === 0) return;
 
-    // CANDADO: Verificamos si el usuario está logueado
+    // CANDADO 1: Verificamos si el usuario está logueado
     const { data: authData } = await supabase.auth.getSession();
     if (!authData.session) {
       alert("Para finalizar tu compra y coordinar el envío, por favor iniciá sesión o creá una cuenta.");
       setCarritoAbierto(false);
       navigate('/cuenta');
-      return; // Frenamos la ejecución acá
+      return; 
     }
     
+    // CANDADO 2: Verificamos si tiene la dirección guardada
+    const { data: clienteData, error: clienteError } = await supabase
+      .from('clientes')
+      .select('direccion, ciudad, provincia, codigo_postal, telefono')
+      .eq('id', authData.session.user.id)
+      .single();
+
+    if (clienteError || !clienteData?.direccion || !clienteData?.ciudad) {
+      alert("Por favor, completá tus datos de envío en 'Mis Datos' antes de realizar la compra.");
+      setCarritoAbierto(false);
+      navigate('/cuenta');
+      return;
+    }
+
     let detalleTexto = "";
     carrito.forEach((item) => {
       const tieneDescuento = item.descuento > 0;
       const precioFinal = tieneDescuento ? item.precio * (1 - (item.descuento / 100)) : item.precio;
       detalleTexto += `- ${item.nombre} ($${precioFinal.toLocaleString('es-AR')})\n`;
     });
+    
+    // Agregamos la dirección de envío al detalle
+    detalleTexto += `\n📍 DIRECCIÓN DE ENVÍO:\n${clienteData.direccion}, ${clienteData.ciudad}, ${clienteData.provincia} (CP: ${clienteData.codigo_postal})\n📞 Tel: ${clienteData.telefono || 'No especificado'}`;
     
     const { error } = await supabase.from('pedidos').insert([
       { cliente_id: authData.session.user.id, detalle: detalleTexto, total: totalCarrito, estado: 'Pendiente' }
@@ -114,13 +131,27 @@ export default function ProductoDetalle({ numeroWhatsApp }) {
   const pagarConMercadoPago = async () => {
     if (carrito.length === 0) return;
 
-    // CANDADO: Verificamos si el usuario está logueado
+    // CANDADO 1: Verificamos si el usuario está logueado
     const { data: authData } = await supabase.auth.getSession();
     if (!authData.session) {
       alert("Para abonar online y coordinar el envío, por favor iniciá sesión o creá una cuenta.");
       setCarritoAbierto(false);
       navigate('/cuenta');
-      return; // Frenamos la ejecución acá
+      return; 
+    }
+
+    // CANDADO 2: Verificamos si tiene la dirección guardada
+    const { data: clienteData, error: clienteError } = await supabase
+      .from('clientes')
+      .select('direccion, ciudad, provincia, codigo_postal, telefono')
+      .eq('id', authData.session.user.id)
+      .single();
+
+    if (clienteError || !clienteData?.direccion || !clienteData?.ciudad) {
+      alert("Por favor, completá tus datos de envío en 'Mis Datos' antes de realizar la compra.");
+      setCarritoAbierto(false);
+      navigate('/cuenta');
+      return;
     }
 
     setProcesandoPago(true);
@@ -131,6 +162,9 @@ export default function ProductoDetalle({ numeroWhatsApp }) {
       const precioFinal = tieneDescuento ? item.precio * (1 - (item.descuento / 100)) : item.precio;
       detalleTexto += `- ${item.nombre} ($${precioFinal.toLocaleString('es-AR')})\n`;
     });
+
+    // Agregamos la dirección de envío al detalle
+    detalleTexto += `\n📍 DIRECCIÓN DE ENVÍO:\n${clienteData.direccion}, ${clienteData.ciudad}, ${clienteData.provincia} (CP: ${clienteData.codigo_postal})\n📞 Tel: ${clienteData.telefono || 'No especificado'}`;
 
     await supabase.from('pedidos').insert([
       { cliente_id: authData.session.user.id, detalle: detalleTexto, total: totalCarrito, estado: 'Pendiente' }
@@ -220,11 +254,15 @@ export default function ProductoDetalle({ numeroWhatsApp }) {
                 {categoriasMenu.map(cat => (<div key={cat} className="px-4 py-2.5 hover:bg-gray-50 cursor-pointer text-gray-700 hover:text-marca-amarillo border-l-4 border-transparent hover:border-marca-amarillo transition-all" onClick={() => seleccionarCategoria(cat)}>{cat}</div>))}
               </div>
             </div>
+            
+            {/* BOTONES ACTIVADOS */}
             <ul className="flex items-center gap-6 px-6 text-gray-600 hidden lg:flex">
               <li onClick={() => navigate('/catalogo')} className="cursor-pointer hover:text-marca-negro transition-colors uppercase tracking-wide">Ver todo el Catálogo</li>
-              <li className="cursor-pointer hover:text-marca-negro transition-colors uppercase tracking-wide">Cuotas sin Interés</li>
+              <li onClick={() => navigate('/catalogo?cuotas=true')} className="cursor-pointer hover:text-marca-negro transition-colors uppercase tracking-wide">Cuotas sin Interés</li>
             </ul>
-            <div className="ml-auto px-4 hidden md:block"><span className="text-marca-amarillo bg-marca-negro px-3 py-1.5 text-xs rounded-full uppercase tracking-wider flex items-center gap-1 shadow-sm"><Zap className="w-3 h-3" /> Especial Talleres</span></div>
+            <div className="ml-auto px-4 hidden md:block cursor-pointer" onClick={() => navigate('/catalogo?cat=Herramientas')}>
+              <span className="text-marca-amarillo bg-marca-negro px-3 py-1.5 text-xs rounded-full uppercase tracking-wider flex items-center gap-1 shadow-sm hover:bg-gray-800 transition-colors"><Zap className="w-3 h-3" /> Especial Talleres</span>
+            </div>
           </div>
         </div>
       </header>

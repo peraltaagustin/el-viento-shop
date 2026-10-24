@@ -3,6 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from './supabase';
 import { User, LogOut, Package, ArrowLeft, Settings, MapPin, Phone, Clock, CheckCircle, XCircle } from 'lucide-react';
 
+const provinciasArgentina = [
+  'Buenos Aires', 'Ciudad Autónoma de Buenos Aires', 'Catamarca', 'Chaco', 'Chubut', 'Córdoba', 'Corrientes', 'Entre Ríos', 'Formosa', 'Jujuy', 'La Pampa', 'La Rioja', 'Mendoza', 'Misiones', 'Neuquén', 'Río Negro', 'Salta', 'San Juan', 'San Luis', 'Santa Cruz', 'Santa Fe', 'Santiago del Estero', 'Tierra del Fuego', 'Tucumán'
+];
+
 export default function MiCuenta() {
   const navigate = useNavigate();
   const [session, setSession] = useState(null);
@@ -254,7 +258,15 @@ export default function MiCuenta() {
                         <div className="md:col-span-4"><label className="block text-xs font-black text-gray-500 uppercase tracking-wider mb-1">Calle y Número</label><input type="text" className="w-full p-2.5 border border-gray-300 rounded focus:ring-2 focus:ring-marca-amarillo outline-none text-marca-negro" value={datosCliente.direccion} onChange={(e) => setDatosCliente({...datosCliente, direccion: e.target.value})} placeholder="Ej: San Martín 123" /></div>
                         <div className="md:col-span-2"><label className="block text-xs font-black text-gray-500 uppercase tracking-wider mb-1">Cód. Postal</label><input type="text" className="w-full p-2.5 border border-gray-300 rounded focus:ring-2 focus:ring-marca-amarillo outline-none text-marca-negro" value={datosCliente.codigo_postal} onChange={(e) => setDatosCliente({...datosCliente, codigo_postal: e.target.value})} placeholder="Ej: 9011" /></div>
                         <div className="md:col-span-3"><label className="block text-xs font-black text-gray-500 uppercase tracking-wider mb-1">Localidad / Ciudad</label><input type="text" className="w-full p-2.5 border border-gray-300 rounded focus:ring-2 focus:ring-marca-amarillo outline-none text-marca-negro" value={datosCliente.ciudad} onChange={(e) => setDatosCliente({...datosCliente, ciudad: e.target.value})} placeholder="Ej: Las Heras" /></div>
-                        <div className="md:col-span-3"><label className="block text-xs font-black text-gray-500 uppercase tracking-wider mb-1">Provincia</label><select className="w-full p-2.5 border border-gray-300 rounded focus:ring-2 focus:ring-marca-amarillo outline-none text-marca-negro" value={datosCliente.provincia} onChange={(e) => setDatosCliente({...datosCliente, provincia: e.target.value})}><option>Santa Cruz</option><option>Chubut</option><option>Tierra del Fuego</option><option>Río Negro</option><option>Neuquén</option><option>Otra</option></select></div>
+                        <div className="md:col-span-3">
+                          <label className="block text-xs font-black text-gray-500 uppercase tracking-wider mb-1">Provincia</label>
+                          <select className="w-full p-2.5 border border-gray-300 rounded focus:ring-2 focus:ring-marca-amarillo outline-none text-marca-negro" value={datosCliente.provincia} onChange={(e) => setDatosCliente({...datosCliente, provincia: e.target.value})}>
+                            <option value="">Seleccioná una provincia</option>
+                            {provinciasArgentina.map(prov => (
+                              <option key={prov} value={prov}>{prov}</option>
+                            ))}
+                          </select>
+                        </div>
                       </div>
                     </div>
                     <div className="pt-4 flex justify-end">

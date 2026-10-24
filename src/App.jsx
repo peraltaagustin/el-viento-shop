@@ -14,11 +14,11 @@ export default function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<Tienda />} />
-        <Route path="/admin" element={<Admin />} />
+        <Route path="/puldrak" element={<Admin />} />
         <Route path="/catalogo" element={<Catalogo />} />
         <Route path="/producto/:id" element={<ProductoDetalle numeroWhatsApp={numeroLocal} />} />
         <Route path="/cuenta" element={<MiCuenta />} />
-       <Route path="/ayuda" element={<Ayuda />} />
+        <Route path="/ayuda" element={<Ayuda />} />
       </Routes>
     </BrowserRouter>
   );
